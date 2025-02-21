@@ -5,44 +5,67 @@ import {
   TextField,
   Button,
   Paper,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  FormLabel,
   Divider,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../redux/store";
+import { updateDeliveryDetails } from "../redux/deliverySlice";
+import BackButton from "../components/BackButton";
+import SmartPostWidget from "../components/SmartPostWidget";
+import DPDWidget from "../components/DPDWidget";
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const deliveryDetails = useSelector((state: RootState) => state.delivery);
 
-  const [formData, setFormData] = useState({
-    email: "",
-    name: "",
-    address: "",
-    city: "",
-    state: "",
-    postalCode: "",
-    phoneNumber: "",
-    shippingMethod: "standard",
-  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    dispatch(updateDeliveryDetails({ [e.target.name]: e.target.value }));
+    // Clear the error when the user starts typing
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [e.target.name]: "",
+    }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Submitted Delivery Details:", formData);
-    // Proceed to payment or confirmation page
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    // Check for empty fields
+    Object.entries(deliveryDetails).forEach(([key, value]) => {
+      if (!value.trim()) {
+        newErrors[key] = "This field is required";
+      }
+    });
+
+    // Email validation
+    if (
+      deliveryDetails.email &&
+      !/^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/.test(deliveryDetails.email)
+    ) {
+      newErrors.email = "Enter a valid email address";
+    }
+
+    // Phone number validation (only digits, min 7 and max 15 digits)
+    if (
+      deliveryDetails.phoneNumber &&
+      !/^\d{7,15}$/.test(deliveryDetails.phoneNumber)
+    ) {
+      newErrors.phoneNumber = "Enter a valid phone number (7-15 digits)";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleNavigateToPayment = () => {
-    // Add form validation if needed before navigation
-    navigate("/checkout-payment");
+    if (validateForm()) {
+      navigate("/checkout-payment");
+    }
   };
 
   return (
@@ -56,6 +79,7 @@ const CheckoutPage: React.FC = () => {
         marginTop: "1%",
       }}
     >
+      <BackButton />
       <Paper
         elevation={3}
         sx={{
@@ -70,7 +94,21 @@ const CheckoutPage: React.FC = () => {
         <Typography variant="body1" gutterBottom>
           Please fill in your information for delivery.
         </Typography>
-        <form onSubmit={handleSubmit}>
+        <form>
+          {/* first name Field */}
+          <Box sx={{ marginBottom: 2 }}>
+            <TextField
+              fullWidth
+              label="Name"
+              name="name"
+              value={deliveryDetails.name}
+              onChange={handleChange}
+              error={!!errors.name}
+              helperText={errors.name}
+              required
+            />
+          </Box>
+
           {/* Email Field */}
           <Box sx={{ marginBottom: 2 }}>
             <TextField
@@ -78,30 +116,25 @@ const CheckoutPage: React.FC = () => {
               label="Email"
               name="email"
               type="email"
-              value={formData.email}
+              value={deliveryDetails.email}
               onChange={handleChange}
+              error={!!errors.email}
+              helperText={errors.email}
               required
             />
           </Box>
 
           {/* User Details */}
-          <Box sx={{ marginBottom: 2 }}>
-            <TextField
-              fullWidth
-              label="Full Name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-            />
-          </Box>
+
           <Box sx={{ marginBottom: 2 }}>
             <TextField
               fullWidth
               label="Address"
               name="address"
-              value={formData.address}
+              value={deliveryDetails.address}
               onChange={handleChange}
+              error={!!errors.address}
+              helperText={errors.address}
               required
             />
           </Box>
@@ -110,26 +143,32 @@ const CheckoutPage: React.FC = () => {
               fullWidth
               label="City"
               name="city"
-              value={formData.city}
+              value={deliveryDetails.city}
               onChange={handleChange}
+              error={!!errors.city}
+              helperText={errors.city}
               required
             />
           </Box>
           <Box sx={{ marginBottom: 2, display: "flex", gap: 2 }}>
             <TextField
               fullWidth
-              label="State"
-              name="state"
-              value={formData.state}
+              label="Country"
+              name="country"
+              value={deliveryDetails.country}
               onChange={handleChange}
+              error={!!errors.country}
+              helperText={errors.country}
               required
             />
             <TextField
               fullWidth
               label="Postal Code"
               name="postalCode"
-              value={formData.postalCode}
+              value={deliveryDetails.postalCode}
               onChange={handleChange}
+              error={!!errors.postalCode}
+              helperText={errors.postalCode}
               required
             />
           </Box>
@@ -138,43 +177,48 @@ const CheckoutPage: React.FC = () => {
               fullWidth
               label="Phone Number"
               name="phoneNumber"
-              value={formData.phoneNumber}
+              value={deliveryDetails.phoneNumber}
               onChange={handleChange}
+              error={!!errors.phoneNumber}
+              helperText={errors.phoneNumber}
               required
             />
           </Box>
 
           <Divider sx={{ marginY: 2 }} />
 
-          {/* Shipping Method */}
-          <Box sx={{ marginBottom: 3 }}>
-            <FormLabel component="legend">Choose Shipping Method</FormLabel>
-            <RadioGroup
-              name="shippingMethod"
-              value={formData.shippingMethod}
-              onChange={handleChange}
-            >
-              <FormControlLabel
-                value="standard"
-                control={<Radio />}
-                label="Standard Shipping (Free, 5-7 business days)"
-              />
-              <FormControlLabel
-                value="express"
-                control={<Radio />}
-                label="Express Shipping ($10.99, 2-3 business days)"
-              />
-              <FormControlLabel
-                value="overnight"
-                control={<Radio />}
-                label="Overnight Shipping ($24.99, next day delivery)"
-              />
-            </RadioGroup>
+          {/* Shipping Method Selection */}
+          <Box sx={{ marginBottom: 3, textAlign: "center" }}>
+            <Typography variant="h6" gutterBottom>
+              Choose Parcel Locker Service
+            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
+              <Button
+                variant={
+                  selectedMethod === "smartpost" ? "contained" : "outlined"
+                }
+                onClick={() => setSelectedMethod("smartpost")}
+                sx={{ width: "150px", height: "100px" }}
+              >
+                SmartPost
+              </Button>
+              <Button
+                variant={selectedMethod === "dpd" ? "contained" : "outlined"}
+                onClick={() => setSelectedMethod("dpd")}
+                sx={{ width: "150px", height: "100px" }}
+              >
+                DPD
+              </Button>
+            </Box>
           </Box>
+
+          {/* Expand Widgets Based on Selection */}
+          {selectedMethod === "smartpost" && <SmartPostWidget />}
+          {selectedMethod === "dpd" && <DPDWidget />}
 
           {/* Submit Button */}
           <Button
-            type="submit"
+            type="button"
             variant="contained"
             color="primary"
             fullWidth

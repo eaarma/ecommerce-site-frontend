@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -7,27 +7,116 @@ import {
   TextField,
   MenuItem,
   Divider,
+  Snackbar,
+  Alert,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
+import { addItem } from "../redux/cartSlice";
+import { useDispatch } from "react-redux";
 
 const ItemPage: React.FC = () => {
-  const mockFeatures = [
-    "Material: Clay",
-    "Available Colors: Blue, Black, Red",
-    "Handmade",
-    "Sizes from 20cm-40cm",
-  ];
-
-  const mockOptions = [
-    { label: "Amount", type: "number", defaultValue: 1 },
-    { label: "Color", type: "select", options: ["Blue", "Black", "Red"] },
-    { label: "Size", type: "select", options: ["20cm", "30cm", "40cm"] },
-  ];
-
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const item = location.state?.item; // Retrieve item from navigation state
 
-  const handleBackClick = () => {
-    navigate(-1);
+  const [selectedColor, setSelectedColor] = useState<string>("");
+  const [quantity, setQuantity] = useState<number>(1);
+  const [error, setError] = useState<string>("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+
+  if (!item) {
+    return (
+      <Box sx={{ textAlign: "center", padding: 5 }}>
+        <Typography variant="h6">No item found.</Typography>
+        <Button variant="contained" onClick={() => navigate(-1)}>
+          Go Back
+        </Button>
+      </Box>
+    );
+  }
+
+  const {
+    id,
+    name,
+    price,
+    description,
+    imageUrl,
+    colors,
+    stock,
+    trait1,
+    trait2,
+    trait3,
+    trait4,
+    trait5,
+    category,
+    shopId,
+  } = item;
+
+  const traits = [trait1, trait2, trait3, trait4, trait5].filter(Boolean); // Remove null/undefined traits
+
+  // Ensure colors is correctly parsed from JSON if needed
+  const availableColors: string[] =
+    typeof colors === "string" ? JSON.parse(colors) : colors || [];
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+
+    if (value > stock) {
+      setError(`Only ${stock} items left`);
+    } else {
+      setError(""); // Clear error if within stock
+    }
+
+    setQuantity(value);
+  };
+
+  const handleAddToCart = () => {
+    if (quantity > stock) {
+      alert(`Only ${stock} items left`); // Show alert if exceeding stock
+      return;
+    }
+
+    // Build the new cart item
+    const newItem = {
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      imageUrl: item.imageUrl,
+      shopId: item.shopId,
+      // Use selectedColor or default to the first available color
+      color:
+        selectedColor || (availableColors.length > 0 ? availableColors[0] : ""),
+      quantity,
+      uniqueKey: uuidv4(), // Generate a unique key for this cart entry
+      stockLeft: stock,
+    };
+
+    if (!newItem.id || !newItem.name) {
+      console.error("Invalid item data:", newItem);
+      return;
+    }
+
+    // Dispatch the addItem action to update Redux state.
+    dispatch(addItem(newItem));
+
+    // Show popup notification
+    setSnackbarMessage(`${quantity}x ${item.name} added to cart`);
+    setSnackbarOpen(true);
+    // For debugging, you might log a success message.
+    console.log("Item added to cart:", newItem);
+  };
+
+  const handleBuyNow = () => {
+    if (quantity > stock) {
+      alert(`Only ${stock} items left`); // Prevent navigation if stock exceeded
+      return;
+    }
+
+    handleAddToCart();
+    navigate("/cart");
   };
 
   return (
@@ -36,20 +125,14 @@ const ItemPage: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
-        marginLeft: "10%",
-        marginRight: "10%",
+        marginX: "10%",
       }}
     >
       {/* Back Button */}
       <Button
         variant="outlined"
-        sx={{
-          marginBottom: 4,
-          marginTop: 4,
-          padding: 2,
-          alignSelf: "flex-start",
-        }}
-        onClick={() => handleBackClick()}
+        sx={{ marginBottom: 4, marginTop: 4, padding: 2 }}
+        onClick={() => navigate(-1)}
       >
         Back
       </Button>
@@ -57,17 +140,12 @@ const ItemPage: React.FC = () => {
       {/* Main Item Layout */}
       <Paper
         elevation={3}
-        sx={{
-          display: "flex",
-          flexWrap: "wrap", // Allows responsiveness for smaller screens
-          padding: 5,
-          gap: 3,
-        }}
+        sx={{ display: "flex", flexWrap: "wrap", padding: 5, gap: 3 }}
       >
         {/* Left Section: Image */}
         <Box
           sx={{
-            flex: { xs: "1 1 100%", md: "1 1 30%" }, // Adapts to screen size
+            flex: { xs: "1 1 100%", md: "1 1 30%" },
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
@@ -77,23 +155,19 @@ const ItemPage: React.FC = () => {
             sx={{
               width: "100%",
               maxWidth: "400px",
-              height: "400px", // Ensure a square layout
-              backgroundColor: "#f5f5f5", // Background color for whitespace
+              height: "400px",
+              backgroundColor: "#f5f5f5",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
               borderRadius: 5,
-              overflow: "hidden", // Ensures image doesn't overflow
+              overflow: "hidden",
             }}
           >
             <img
-              src="/src/assets/vases2.jpg"
-              alt="Product"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain", // Ensures the image fits within the square
-              }}
+              src={imageUrl}
+              alt={name}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
           </Box>
         </Box>
@@ -112,7 +186,7 @@ const ItemPage: React.FC = () => {
             variant="h4"
             sx={{ fontWeight: "bold", textAlign: "left", marginLeft: "1%" }}
           >
-            Product Title
+            {name}
           </Typography>
 
           {/* Price */}
@@ -121,42 +195,59 @@ const ItemPage: React.FC = () => {
             color="primary"
             sx={{ textAlign: "left", marginLeft: "1%" }}
           >
-            $99.99
+            {price}
+          </Typography>
+
+          {/* Category */}
+          <Typography
+            variant="subtitle1"
+            sx={{ textAlign: "left", marginLeft: "1%" }}
+          >
+            Category: {category}
           </Typography>
 
           {/* Options */}
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-            {mockOptions.map((option, index) => (
-              <Box key={index} sx={{ minWidth: "150px" }}>
-                {option.type === "select" ? (
-                  <TextField
-                    select
-                    label={option.label}
-                    fullWidth
-                    defaultValue={option.options?.[0]}
-                  >
-                    {option.options?.map((opt, idx) => (
-                      <MenuItem key={idx} value={opt}>
-                        {opt}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                ) : (
-                  <TextField
-                    label={option.label}
-                    type={option.type}
-                    fullWidth
-                    defaultValue={option.defaultValue}
-                  />
-                )}
-              </Box>
-            ))}
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+            {/* Quantity Input */}
+            <TextField
+              label="Quantity"
+              type="number"
+              inputProps={{ min: 1, max: stock }}
+              fullWidth
+              value={quantity}
+              onChange={handleQuantityChange}
+              error={!!error}
+              helperText={error}
+            />
+
+            {/* Color Selection Dropdown */}
+            <TextField
+              select
+              label="Color"
+              fullWidth
+              value={selectedColor}
+              onChange={(e) => setSelectedColor(e.target.value)}
+            >
+              {availableColors.length > 0 ? (
+                availableColors.map((clr, idx) => (
+                  <MenuItem key={idx} value={clr}>
+                    {clr}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value="" disabled>
+                  No colors available
+                </MenuItem>
+              )}
+            </TextField>
           </Box>
+
+          {/* Traits */}
           <Box sx={{ marginTop: 2, textAlign: "left", width: "100%" }}>
             <ul style={{ paddingLeft: "1.5rem" }}>
-              {mockFeatures.map((feature, index) => (
+              {traits.map((trait, index) => (
                 <li key={index}>
-                  <Typography variant="body2">{feature}</Typography>
+                  <Typography variant="body2">{trait}</Typography>
                 </li>
               ))}
             </ul>
@@ -168,7 +259,7 @@ const ItemPage: React.FC = () => {
               variant="contained"
               color="primary"
               size="large"
-              onClick={() => console.log("Buy Now")}
+              onClick={handleBuyNow}
             >
               Buy Now
             </Button>
@@ -176,7 +267,7 @@ const ItemPage: React.FC = () => {
               variant="outlined"
               color="secondary"
               size="large"
-              onClick={() => console.log("Add to Cart")}
+              onClick={handleAddToCart}
             >
               Add to Cart
             </Button>
@@ -194,12 +285,26 @@ const ItemPage: React.FC = () => {
               marginBottom: "3%",
             }}
           >
-            This is a detailed description of the product. It provides
-            information about the item's usage, design, and any additional
-            details that the customer might find helpful.
+            {description}
           </Typography>
         </Box>
       </Paper>
+
+      {/* Snackbar Notification */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000} // Closes after 3 seconds
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -1,15 +1,48 @@
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  IconButton,
-  Grid2,
-} from "@mui/material";
-import { Facebook, Twitter, Instagram } from "@mui/icons-material";
-import React from "react";
+import { Box, Typography, TextField, Button, Grid2 } from "@mui/material";
+import React, { useState } from "react";
 
 const ContactPage: React.FC = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+
+    // Prepare the form data
+    const formData = {
+      name,
+      email,
+      subject,
+      message,
+    };
+
+    try {
+      // Send a POST request to the back-end to send the email
+      const response = await fetch("http://localhost:8080/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        alert("Message sent successfully!");
+      } else {
+        throw new Error("Failed to send message");
+      }
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -42,6 +75,7 @@ const ContactPage: React.FC = () => {
       {/* Contact Form */}
       <Box
         component="form"
+        onSubmit={handleSubmit}
         sx={{
           display: "flex",
           flexDirection: "column",
@@ -51,47 +85,50 @@ const ContactPage: React.FC = () => {
           margin: "0 auto",
         }}
       >
-        <TextField label="Name" fullWidth required />
-        <TextField label="Email" type="email" fullWidth required />
-        <TextField label="Subject" fullWidth />
-        <TextField label="Message" multiline rows={4} fullWidth required />
+        <TextField
+          label="Name"
+          fullWidth
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <TextField
+          label="Email"
+          type="email"
+          fullWidth
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <TextField
+          label="Subject"
+          fullWidth
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+        <TextField
+          label="Message"
+          multiline
+          rows={4}
+          fullWidth
+          required
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
         <Button
           variant="contained"
           color="primary"
           sx={{ alignSelf: "center" }}
+          type="submit"
+          disabled={isSubmitting}
         >
-          Submit
+          {isSubmitting ? "Submitting..." : "Submit"}
         </Button>
-      </Box>
-
-      {/* Social Media Links */}
-      <Box sx={{ marginTop: "2rem" }}>
-        <Typography variant="h6" gutterBottom>
-          Follow Us
-        </Typography>
-        <Box>
-          <IconButton
-            href="https://facebook.com"
-            target="_blank"
-            color="primary"
-          >
-            <Facebook />
-          </IconButton>
-          <IconButton
-            href="https://twitter.com"
-            target="_blank"
-            color="primary"
-          >
-            <Twitter />
-          </IconButton>
-          <IconButton
-            href="https://instagram.com"
-            target="_blank"
-            color="primary"
-          >
-            <Instagram />
-          </IconButton>
-        </Box>
+        {errorMessage && (
+          <Typography color="error" variant="body2">
+            {errorMessage}
+          </Typography>
+        )}
       </Box>
     </Box>
   );

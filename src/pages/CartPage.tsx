@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Grid,
@@ -7,53 +7,154 @@ import {
   Button,
   IconButton,
   Divider,
+  DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import { Add, Remove, Delete } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-
-interface CartItem {
-  id: number;
-  name: string;
-  image: string;
-  quantity: number;
-  price: number; // Price per item
-}
-
-const cartItems: CartItem[] = [
-  {
-    id: 1,
-    name: "Item 1",
-    image: "https://via.placeholder.com/50",
-    quantity: 2,
-    price: 15,
-  },
-  {
-    id: 2,
-    name: "Item 2",
-    image: "https://via.placeholder.com/50",
-    quantity: 1,
-    price: 25,
-  },
-  {
-    id: 3,
-    name: "Item 3",
-    image: "https://via.placeholder.com/50",
-    quantity: 3,
-    price: 10,
-  },
-];
+import { fetchItemById } from "../api/itemService";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../redux/store";
+import { updateCart } from "../redux/cartSlice";
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const cartItems = useSelector((state: RootState) => state.cart.items);
+  const [error, setError] = useState<{ [key: string]: string }>({});
+  const [validationMessages, setValidationMessages] = useState<string[]>([]);
+  const [openValidationDialog, setOpenValidationDialog] = useState(false);
 
+  // Handle Quantity Change
+  const handleQuantityChange = (
+    uniqueKey: string, //Using uniqueKey instead of id
+    newQuantity: number,
+    stock: number
+  ) => {
+    if (newQuantity > stock) {
+      setError((prev) => ({
+        ...prev,
+        [uniqueKey]: `Only ${stock} items left`,
+      }));
+      return;
+    } else {
+      setError((prev) => ({ ...prev, [uniqueKey]: "" })); // Clear error if valid
+    }
+
+    const updatedCart = cartItems.map((item) =>
+      item.uniqueKey === uniqueKey ? { ...item, quantity: newQuantity } : item
+    );
+
+    dispatch(updateCart(updatedCart));
+  };
+
+  const handleIncrement = (uniqueKey: string, stock: number) => {
+    const item = cartItems.find((item) => item.uniqueKey === uniqueKey);
+    if (item) {
+      if (item.quantity >= stock) {
+        setError((prev) => ({
+          ...prev,
+          [uniqueKey]: `Only ${stock} items left`,
+        }));
+      } else {
+        setError((prev) => ({ ...prev, [uniqueKey]: "" })); // Clear error
+        handleQuantityChange(uniqueKey, item.quantity + 1, stock);
+      }
+    }
+  };
+  const handleDecrement = (uniqueKey: string) => {
+    const item = cartItems.find((item) => item.uniqueKey === uniqueKey);
+    if (item && item.quantity > 1) {
+      handleQuantityChange(uniqueKey, item.quantity - 1, item.stockLeft);
+    }
+  };
+
+  const handleRemove = (uniqueKey: string) => {
+    const updatedCart = cartItems.filter(
+      (item) => item.uniqueKey !== uniqueKey
+    );
+    dispatch(updateCart(updatedCart));
+  };
+  // Calculate Total Price
   const totalPrice = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
 
-  const handleCheckout = () => {
-    // Add form validation if needed before navigation
-    navigate("/checkout-details");
+  // When the user clicks "Proceed to Checkout", validate all cart items
+  const handleCheckout = async () => {
+    const messages: string[] = [];
+    let updatedCart = [...cartItems]; // Copy cart items
+
+    await Promise.all(
+      cartItems.map(async (cartItem) => {
+        try {
+          const fetchedItem = await fetchItemById(cartItem.id);
+          if (!fetchedItem) {
+            messages.push(`Item ${cartItem.name} is no longer available.`);
+            return;
+          }
+
+          if (fetchedItem.stock === 0) {
+            messages.push(
+              `${cartItem.name} is out of stock and removed from your cart.`
+            );
+            updatedCart = updatedCart.filter(
+              (item) => item.uniqueKey !== cartItem.uniqueKey
+            ); // 🚀 Remove the item
+            return;
+          }
+
+          const itemIndex = updatedCart.findIndex(
+            (item) => item.uniqueKey === cartItem.uniqueKey
+          );
+
+          if (itemIndex !== -1) {
+            if (cartItem.quantity > fetchedItem.stock) {
+              messages.push(
+                `Only ${fetchedItem.stock} of ${cartItem.name} left; quantity adjusted.`
+              );
+              updatedCart[itemIndex] = {
+                ...updatedCart[itemIndex],
+                quantity: fetchedItem.stock,
+                stockLeft: fetchedItem.stock,
+              };
+            }
+
+            if (cartItem.price !== fetchedItem.price) {
+              messages.push(
+                `The price for ${
+                  cartItem.name
+                } has changed from $${cartItem.price.toFixed(
+                  2
+                )} to $${fetchedItem.price.toFixed(2)}; updated in your cart.`
+              );
+              updatedCart[itemIndex] = {
+                ...updatedCart[itemIndex],
+                price: fetchedItem.price,
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`Error validating ${cartItem.name}:`, error);
+          messages.push(`Error validating ${cartItem.name}.`);
+        }
+      })
+    );
+
+    // 🚨 Ensure out-of-stock items are removed again before dispatch
+    updatedCart = updatedCart.filter((item) => item.stockLeft !== 0);
+
+    if (messages.length > 0) {
+      dispatch(updateCart(updatedCart));
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Ensure Redux state updates
+      setValidationMessages(messages);
+      setOpenValidationDialog(true);
+    } else {
+      navigate("/checkout-details");
+    }
   };
 
   return (
@@ -71,75 +172,98 @@ const CartPage: React.FC = () => {
         Your Cart
       </Typography>
       <Typography variant="body1" gutterBottom>
-        Review your selected items here before checkout.
+        Review your selected items before checkout.
       </Typography>
 
       <Grid container spacing={4}>
         {/* Left Side: Cart Items */}
         <Grid item xs={12} md={9}>
-          <Paper
-            elevation={3}
-            sx={{
-              padding: 2,
-            }}
-          >
-            {cartItems.map((item) => (
-              <Box
-                key={item.id}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: 2,
-                  marginBottom: 2,
-                  borderRadius: 2,
-                  backgroundColor: "#ffffff",
-                }}
-              >
-                {/* Item Info */}
-                <Box display="flex" alignItems="center" gap={2}>
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 5,
-                      objectFit: "cover",
-                    }}
-                  />
+          <Paper elevation={3} sx={{ padding: 2 }}>
+            {cartItems.length > 0 ? (
+              cartItems.map((item) => (
+                <Box
+                  key={item.id}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: 2,
+                    marginBottom: 2,
+                    borderRadius: 2,
+                    backgroundColor: "#ffffff",
+                  }}
+                >
+                  {/* Item Info */}
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 5,
+                        objectFit: "cover",
+                      }}
+                    />
+                    <Box>
+                      <Typography variant="body1">{item.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        ${item.price.toFixed(2)} each
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Quantity Controls */}
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDecrement(item.uniqueKey)}
+                      disabled={item.quantity <= 1}
+                    >
+                      <Remove />
+                    </IconButton>
+
+                    <Typography>{item.quantity}</Typography>
+
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        handleIncrement(item.uniqueKey, item.stockLeft)
+                      }
+                      disabled={item.quantity >= item.stockLeft}
+                    >
+                      <Add />
+                    </IconButton>
+                  </Box>
+
+                  {/* Display Error Message if present */}
+                  {error[item.uniqueKey] && (
+                    <Typography color="error" variant="caption">
+                      {error[item.uniqueKey]}
+                    </Typography>
+                  )}
+
+                  {/* Item Total */}
                   <Box>
-                    <Typography variant="body1">{item.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      ${item.price.toFixed(2)} each
+                    <Typography>
+                      ${(item.price * item.quantity).toFixed(2)}
                     </Typography>
                   </Box>
-                </Box>
 
-                {/* Quantity Controls */}
-                <Box display="flex" alignItems="center" gap={1}>
-                  <IconButton size="small">
-                    <Remove />
-                  </IconButton>
-                  <Typography>{item.quantity}</Typography>
-                  <IconButton size="small">
-                    <Add />
+                  {/* Remove Button */}
+                  <IconButton
+                    color="error"
+                    onClick={() => handleRemove(item.uniqueKey)}
+                  >
+                    <Delete />
                   </IconButton>
                 </Box>
-
-                {/* Item Total */}
-                <Box>
-                  <Typography>
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </Typography>
-                </Box>
-
-                {/* Remove Button */}
-                <IconButton color="error">
-                  <Delete />
-                </IconButton>
-              </Box>
-            ))}
+              ))
+            ) : (
+              <Typography variant="h6" textAlign="center">
+                Your cart is empty.
+              </Typography>
+            )}
 
             <Divider sx={{ marginY: 2 }} />
 
@@ -157,6 +281,7 @@ const CartPage: React.FC = () => {
             </Box>
           </Paper>
         </Grid>
+
         {/* Right Side: Total and Checkout */}
         <Grid item xs={12} md={3}>
           <Paper
@@ -188,12 +313,29 @@ const CartPage: React.FC = () => {
               fullWidth
               size="large"
               onClick={handleCheckout}
+              disabled={cartItems.length === 0} // Disable if cart is empty
             >
               Proceed to Checkout
             </Button>
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Validation Dialog */}
+      <Dialog
+        open={openValidationDialog}
+        onClose={() => setOpenValidationDialog(false)}
+      >
+        <DialogTitle>Cart Updates</DialogTitle>
+        <DialogContent>
+          {validationMessages.map((msg, idx) => (
+            <Typography key={idx}>{msg}</Typography>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenValidationDialog(false)}>OK</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

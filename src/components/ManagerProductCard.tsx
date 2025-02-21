@@ -1,44 +1,44 @@
 import React from "react";
 import { Card, CardContent, CardMedia, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { Item } from "../config/Types";
 
 interface ProductCardProps {
-  item: number;
-  price: string;
+  item: Item;
 }
 
-const ManagedProductCard: React.FC<ProductCardProps> = ({ item, price }) => {
+const ManagerProductCard: React.FC<ProductCardProps> = ({ item }) => {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
-    navigate("/manager-item-page");
+    navigate("/manager-item-page", { state: { item } });
   };
 
   return (
     <Card
       sx={{
-        borderRadius: 2, // Subtle curvature for modern design
-        boxShadow: 1, // Minimal shadow for depth
-        overflow: "hidden", // Ensures the image stays within bounds
+        borderRadius: 2,
+        boxShadow: 1,
+        overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        transition: "transform 0.2s, box-shadow 0.2s", // Smooth hover effect
+        transition: "transform 0.2s, box-shadow 0.2s",
         "&:hover": {
-          transform: "scale(1.03)", // Slight zoom on hover
+          transform: "scale(1.03)",
           boxShadow: 3,
         },
       }}
       onClick={handleCardClick}
     >
-      {/* Product Image */}
       <CardMedia
         component="img"
-        image={`https://via.placeholder.com/300x300?text=Item+${item}`}
-        alt={`Item ${item}`}
-        sx={{ aspectRatio: "1 / 1", backgroundColor: "#f5f5f5" }} // Ensures a square image
+        image={
+          item.imageUrl ||
+          `https://via.placeholder.com/300x300?text=${item.name}`
+        }
+        alt={item.name}
+        sx={{ aspectRatio: "1 / 1", backgroundColor: "#f5f5f5" }}
       />
-
-      {/* Product Details */}
       <CardContent
         sx={{
           display: "flex",
@@ -48,14 +48,14 @@ const ManagedProductCard: React.FC<ProductCardProps> = ({ item, price }) => {
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 500 }}>
-          Item {item}
+          {item.name}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          {price}
+          ${item.price.toFixed(2)}
         </Typography>
       </CardContent>
     </Card>
   );
 };
 
-export default ManagedProductCard;
+export default ManagerProductCard;

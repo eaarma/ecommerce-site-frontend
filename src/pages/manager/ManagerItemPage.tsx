@@ -5,33 +5,39 @@ import {
   Typography,
   Paper,
   TextField,
-  MenuItem,
   Divider,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Item } from "../../config/Types";
 
 const ManagerItemPage: React.FC = () => {
-  const mockFeatures = [
-    "Material: Clay",
-    "Available Colors: Blue, Black, Red",
-    "Handmade",
-    "Sizes from 20cm-40cm",
-  ];
+  const location = useLocation();
+  const item = location.state?.item;
 
-  const mockOptions = [
-    { label: "Amount", type: "number", defaultValue: 1 },
-    { label: "Color", type: "select", options: ["Blue", "Black", "Red"] },
-    { label: "Size", type: "select", options: ["20cm", "30cm", "40cm"] },
-  ];
   const navigate = useNavigate();
 
-  const handleEditClick = () => {
-    navigate("/edit-item-page");
+  const handleEditClick = (item: Item) => {
+    navigate("/edit-item-page", { state: { item } }); // Pass item in state
   };
 
   const handleBackClick = () => {
     navigate(-1);
   };
+
+  if (!item) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <Typography variant="h5">No item selected</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -124,14 +130,14 @@ const ManagerItemPage: React.FC = () => {
               variant="h4"
               sx={{ fontWeight: "bold", textAlign: "left" }}
             >
-              Product Title
+              {item.name}
             </Typography>
             <Button
               sx={{ marginRight: "5%", padding: 2 }}
               variant="outlined"
               color="primary"
               size="small"
-              onClick={() => handleEditClick()}
+              onClick={() => handleEditClick(item)}
               startIcon={<span className="material-icons">edit</span>} // Replace with an icon if available
             >
               Edit
@@ -144,48 +150,39 @@ const ManagerItemPage: React.FC = () => {
             color="primary"
             sx={{ textAlign: "left", marginLeft: "1%" }}
           >
-            $99.99
+            ${item.price.toFixed(2)}{" "}
           </Typography>
 
-          {/* Options (Disabled) */}
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-            {mockOptions.map((option, index) => (
-              <Box key={index} sx={{ minWidth: "150px" }}>
-                {option.type === "select" ? (
-                  <TextField
-                    select
-                    label={option.label}
-                    fullWidth
-                    defaultValue={option.options?.[0]}
-                    disabled
-                  >
-                    {option.options?.map((opt, idx) => (
-                      <MenuItem key={idx} value={opt}>
-                        {opt}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                ) : (
-                  <TextField
-                    label={option.label}
-                    type={option.type}
-                    fullWidth
-                    defaultValue={option.defaultValue}
-                    disabled
-                  />
-                )}
-              </Box>
-            ))}
+            <Box sx={{ minWidth: "150px" }}>
+              <TextField
+                label="Amount left"
+                type="number"
+                fullWidth
+                defaultValue={item.stock}
+                disabled
+              />
+            </Box>
+            <Box sx={{ minWidth: "150px" }}>
+              <TextField
+                label="Color"
+                fullWidth
+                defaultValue={item.color}
+                disabled
+              />
+            </Box>
           </Box>
 
           {/* Features */}
           <Box sx={{ marginTop: 2, textAlign: "left", width: "100%" }}>
             <ul style={{ paddingLeft: "1.5rem" }}>
-              {mockFeatures.map((feature, index) => (
-                <li key={index}>
-                  <Typography variant="body2">{feature}</Typography>
-                </li>
-              ))}
+              {[item.trait1, item.trait2, item.trait3, item.trait4, item.trait5]
+                .filter(Boolean)
+                .map((trait, index) => (
+                  <li key={index}>
+                    <Typography variant="body2">{trait}</Typography>
+                  </li>
+                ))}
             </ul>
           </Box>
 
@@ -201,9 +198,7 @@ const ManagerItemPage: React.FC = () => {
               marginBottom: "3%",
             }}
           >
-            This is a detailed description of the product. It provides
-            information about the item's usage, design, and any additional
-            details that the manager might need to review.
+            {item.description}
           </Typography>
         </Box>
       </Paper>

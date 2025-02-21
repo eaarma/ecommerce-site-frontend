@@ -11,6 +11,7 @@ import ManagePage from "../pages/manager/ManagerPage";
 import ItemPage from "../pages/ItemPage";
 import EditAddItemPage from "../pages/manager/EditAddItemPage";
 import ManagerItemPage from "../pages/manager/ManagerItemPage";
+import SalesHistoryItemPage from "../pages/manager/OrderItemPage";
 
 const AppRouter: React.FC = () => {
   return (
@@ -22,6 +23,7 @@ const AppRouter: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/manage" element={<ManagePage />} />
       <Route path="/manager-item-page" element={<ManagerItemPage />} />
+      <Route path="/sales-item-page" element={<SalesHistoryItemPage />} />
 
       <Route path="/add-item-page" element={<EditAddItemPage type="add" />} />
       <Route path="/edit-item-page" element={<EditAddItemPage type="edit" />} />

@@ -1,20 +1,20 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
   TextField,
   Button,
-  Select,
-  MenuItem,
-  InputLabel,
-  FormControl,
   Grid,
   IconButton,
 } from "@mui/material";
 import { Close as CloseIcon } from "@mui/icons-material";
-import { ChromePicker } from "react-color"; // Import the color picker library
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import { useNavigate } from "react-router-dom";
+import ColorPicker from "../../components/ColorPicker";
+import BackButton from "../../components/BackButton";
+import { useLocation } from "react-router-dom";
+import { createItem, updateItemById } from "../../api/itemService";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 
 interface EditAddItemPageProps {
   type: "add" | "edit";
@@ -25,27 +25,38 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
   const [itemDescription, setItemDescription] = useState("");
   const [price, setPrice] = useState<number | string>("");
   const [quantity, setQuantity] = useState<number | string>("");
-  const [itemSize, setItemSize] = useState("");
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customFields, setCustomFields] = useState<string[]>([]);
   const [images, setImages] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
-  const [colorPickerOpen, setColorPickerOpen] = useState<boolean>(false); // Controls the visibility of the color picker dropdown
-  const [currentColor, setCurrentColor] = useState("#fff"); // Stores the currently selected color
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const navigate = useNavigate();
+  const location = useLocation();
+  const item = location.state?.item;
+  const shopId = useSelector((state: RootState) => state.auth.shopId); // Access shopId from Redux
 
-  const pickerRef = React.useRef(null);
+  //Loads info from item values into the fields
+  useEffect(() => {
+    if (type === "edit" && item) {
+      setProductName(item.name || "");
+      setItemDescription(item.description || "");
+      setPrice(item.price || "");
+      setQuantity(item.stock || "");
 
-  React.useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
-        setColorPickerOpen(false);
-      }
-    };
+      // Only set the colors if they differ from the existing selected colors
+      setSelectedColors(Array.isArray(item.colors) ? item.colors : []);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+      const traits = [
+        item.trait1,
+        item.trait2,
+        item.trait3,
+        item.trait4,
+        item.trait5,
+      ].filter(
+        (trait) => trait !== undefined && trait !== null && trait !== ""
+      );
+
+      setCustomFields(traits);
+    }
+  }, [type, item]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files ? Array.from(event.target.files) : [];
@@ -56,17 +67,6 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
   const handleRemoveImage = (index: number) => {
     const updatedImages = images.filter((_, i) => i !== index);
     setImages(updatedImages);
-  };
-
-  const handleAddColor = (color: string) => {
-    if (selectedColors.length < 6 && !selectedColors.includes(color)) {
-      setSelectedColors([...selectedColors, color]);
-    }
-  };
-
-  const handleRemoveColor = (color: string) => {
-    const updatedColors = selectedColors.filter((c) => c !== color);
-    setSelectedColors(updatedColors);
   };
 
   const handleAddCustomField = () => {
@@ -93,8 +93,6 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
     if (!itemDescription.trim()) newErrors.push("itemDescription");
     if (!price) newErrors.push("price");
     if (!quantity) newErrors.push("quantity");
-    if (!selectedColors.length) newErrors.push("selectedColors");
-    if (!itemSize.trim()) newErrors.push("itemSize");
 
     customFields.forEach((field, index) => {
       if (!field.trim()) newErrors.push(`customField${index}`);
@@ -105,43 +103,46 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
     return newErrors.length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (validateFields()) {
-      // Save item logic here
-      console.log("Item saved successfully!");
+      const newItem = {
+        name: productName,
+        description: itemDescription,
+        price: Number(price), // Ensure numeric values are sent as numbers
+        stock: Number(quantity),
+        colors: selectedColors, // Array of colors
+        shopId: shopId,
+        trait1: customFields[0] || null, // Send null if empty
+        trait2: customFields[1] || null,
+        trait3: customFields[2] || null,
+        trait4: customFields[3] || null,
+        trait5: customFields[4] || null,
+      };
+
+      console.log("Item Payload:", newItem);
+
+      try {
+        if (type === "edit" && item?.id) {
+          await updateItemById(item.id, newItem);
+          console.log("Item updated successfully!");
+        } else {
+          const createdItem = await createItem(newItem);
+          console.log("New item created successfully!", createdItem);
+        }
+      } catch (error) {
+        console.error("Failed to save item:", error);
+      }
     }
   };
 
   const isFieldError = (fieldName: string) => errors.includes(fieldName);
 
-  const handleBackClick = () => {
-    navigate(-1);
-  };
-
   return (
     <Box sx={{ padding: 3, marginLeft: "20%", marginRight: "20%" }}>
       {/* Back Button */}
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-        }}
-      >
-        <Button
-          variant="outlined"
-          sx={{
-            marginBottom: 2,
-            marginTop: 2,
-            padding: 2,
-            alignSelf: "flex-start",
-          }}
-          onClick={() => handleBackClick()}
-        >
-          Back
-        </Button>
-      </Box>
+      <BackButton />
 
+      {/* Page title */}
       <Typography
         variant="h4"
         sx={{
@@ -252,119 +253,28 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
           />
         </Grid>
 
-        {/* Quantity */}
-        <Grid item xs={12}>
-          <FormControl fullWidth error={isFieldError("quantity")}>
-            <InputLabel>Available Quantity</InputLabel>
-            <Select
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              label="Available Quantity"
-            >
-              {[1, 2, 3, 4, 5].map((qty) => (
-                <MenuItem key={qty} value={qty}>
-                  {qty}
-                </MenuItem>
-              ))}
-            </Select>
-            {isFieldError("quantity") && (
-              <Typography variant="caption" color="error">
-                This field is required
-              </Typography>
-            )}
-          </FormControl>
-        </Grid>
-
-        {/* Color Picker */}
-        <Grid item xs={12}>
-          <Box sx={{ position: "relative", width: "fit-content" }}>
-            <Button
-              variant="outlined"
-              onClick={() => setColorPickerOpen((prev) => !prev)} // Toggle the color picker state
-              sx={{
-                width: 150,
-                cursor: "pointer",
-                textTransform: "none", // Keep text casing as-is
-                justifyContent: "flex-start", // Align text to the left
-              }}
-            >
-              Pick a color
-            </Button>
-            {colorPickerOpen && (
-              <Box
-                ref={pickerRef}
-                sx={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  zIndex: 10,
-                  backgroundColor: "white",
-                  boxShadow: 3,
-                  borderRadius: 1,
-                  padding: 2,
-                }}
-              >
-                <ChromePicker
-                  color={currentColor}
-                  onChange={(color) => setCurrentColor(color.hex)}
-                />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  sx={{ marginTop: 1, width: "100%" }}
-                  onClick={() => {
-                    handleAddColor(currentColor);
-                    setColorPickerOpen(false);
-                  }}
-                >
-                  Add
-                </Button>
-              </Box>
-            )}
-          </Box>
-          <Box sx={{ display: "flex", marginTop: 2 }}>
-            {selectedColors.map((color, index) => (
-              <Box
-                key={index}
-                sx={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  backgroundColor: color,
-                  marginRight: 1,
-                  cursor: "pointer",
-                  position: "relative",
-                }}
-                onClick={() => handleRemoveColor(color)}
-              >
-                <IconButton
-                  size="small"
-                  sx={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    backgroundColor: "rgba(255, 255, 255, 0.7)",
-                  }}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            ))}
-          </Box>
-        </Grid>
-
-        {/* Item Size */}
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Item Size"
-            value={itemSize}
-            onChange={(e) => setItemSize(e.target.value)}
-            error={isFieldError("itemSize")}
-            helperText={isFieldError("itemSize") && "This field is required"}
+            label="Available Quantity"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            error={isFieldError("quantity")}
+            helperText={
+              isFieldError("quantity") ? "This field is required" : ""
+            }
+            // Optional: force numeric input (works on mobile browsers)
+            type="number"
+            inputProps={{ min: 0 }}
           />
         </Grid>
-
+        {/* Color Picker */}
+        <Grid item xs={12}>
+          <ColorPicker
+            colors={selectedColors} // pass current state
+            onColorsChange={setSelectedColors} // update parent's state
+          />
+        </Grid>
         {/* Add Custom Fields */}
         <Grid item xs={12}>
           <Button
