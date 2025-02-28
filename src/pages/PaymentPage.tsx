@@ -14,7 +14,7 @@ import {
   Collapse,
 } from "@mui/material";
 import { RootState } from "../redux/store";
-import { updateCart } from "../redux/cartSlice";
+import { updateCart, resetCart } from "../redux/cartSlice";
 import { useNavigate } from "react-router-dom";
 import { fetchItemById } from "../api/itemService";
 import { postPaymentCall } from "../api/paymentService";
@@ -35,8 +35,28 @@ const PaymentPage: React.FC = () => {
   const cart = useSelector((state: RootState) => state.cart);
   const deliveryDetails = useSelector((state: RootState) => state.delivery);
   const deliveryMethod = useSelector((state: RootState) => state.deliverMethod);
+  const lockerState = useSelector((state: RootState) => state.locker);
 
-  console.log(deliveryMethod.name);
+  // Determine shipping price based on provider from deliveryMethod slice
+  let shippingPrice = 0;
+  let shippingProvider = "";
+  let packageSize = "";
+
+  if (deliveryMethod.provider) {
+    if (deliveryMethod.provider.toLowerCase() === "dpd" && lockerState.DPD) {
+      shippingPrice = lockerState.DPD.lockerPrice;
+      shippingProvider = lockerState.DPD.provider;
+      packageSize = lockerState.DPD.lockerSize;
+    } else if (
+      deliveryMethod.provider.toLowerCase() === "smartpost" &&
+      lockerState.SmartPost
+    ) {
+      shippingPrice = lockerState.SmartPost.lockerPrice;
+      shippingProvider = lockerState.SmartPost.provider;
+      packageSize = lockerState.SmartPost.lockerSize;
+    }
+  }
+
   const handlePaymentMethodChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -81,12 +101,11 @@ const PaymentPage: React.FC = () => {
       }
 
       // Step 3: Calculate total price
-      const totalAmount = updatedItems
-        .reduce(
+      const totalAmount =
+        updatedItems.reduce(
           (acc, item, index) => acc + item.price * cart.items[index].quantity,
           0
-        )
-        .toFixed(2);
+        ) + shippingPrice;
 
       console.log("Step3, calculate price:", totalAmount);
 
@@ -124,7 +143,9 @@ const PaymentPage: React.FC = () => {
           country: deliveryDetails.country,
           postalCode: deliveryDetails.postalCode,
           phone: deliveryDetails.phoneNumber,
-          shipping: deliveryDetails.shippingMethod,
+          lockerProvider: deliveryMethod.provider,
+          lockerName: deliveryMethod.name,
+          lockerAddress: deliveryMethod.address,
         },
         orderItems: cart.items.map((item) => ({
           itemId: item.id,
@@ -135,11 +156,15 @@ const PaymentPage: React.FC = () => {
           shopId: item.shopId,
           profit: item.price * item.quantity,
         })),
-        totalAmount: 49.99, // Add missing fields if required
-        shopId: 123,
+        totalAmount: totalAmount, // Add missing fields if required
+        shopId: deliveryDetails.shopId,
         status: "paid",
-        profit: 50,
+        profit: totalAmount - shippingPrice,
         saleDate: new Date().toISOString(),
+        packageSize: packageSize,
+        postalServicePrice: shippingPrice,
+        postalServiceProvider: shippingProvider,
+        packageReference: "",
       };
 
       console.log(
@@ -152,7 +177,7 @@ const PaymentPage: React.FC = () => {
         console.log("Step 6: Order created successfully, updating stock");
 
         alert("Order successful! Thank you for your purchase.");
-        //dispatch(clearCart()); // Clear cart after successful order
+        dispatch(resetCart()); // Clear cart after successful order
         navigate("/order-confirmation");
       } else {
         console.error("Order creation failed");
@@ -262,6 +287,7 @@ const PaymentPage: React.FC = () => {
                   </Typography>
                 </Box>
               ))}
+
               <Divider sx={{ marginY: "5%" }} />
             </Box>
 
@@ -301,6 +327,15 @@ const PaymentPage: React.FC = () => {
               </Typography>
               <Typography variant="body1">
                 <strong>Postal code:</strong> {deliveryDetails.postalCode}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Delivery company:</strong> {deliveryMethod.provider}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Locker name:</strong> {deliveryMethod.name}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Locker address:</strong> {deliveryMethod.address}
               </Typography>
             </Box>
 
@@ -401,7 +436,7 @@ const PaymentPage: React.FC = () => {
             >
               <Typography variant="body1">Subtotal</Typography>
               <Typography variant="body1">
-                $
+                €
                 {cart.items
                   .reduce((acc, item) => acc + item.price * item.quantity, 0)
                   .toFixed(2)}
@@ -416,7 +451,9 @@ const PaymentPage: React.FC = () => {
               }}
             >
               <Typography variant="body1">Shipping</Typography>
-              <Typography variant="body1">$5.00</Typography>
+              <Typography variant="body1">
+                €{shippingPrice.toFixed(2)}
+              </Typography>
             </Box>
 
             <Divider sx={{ marginY: 2 }} />
@@ -434,7 +471,7 @@ const PaymentPage: React.FC = () => {
                   cart.items.reduce(
                     (acc, item) => acc + item.price * item.quantity,
                     0
-                  ) + 5
+                  ) + shippingPrice
                 ).toFixed(2)}
               </Typography>
             </Box>

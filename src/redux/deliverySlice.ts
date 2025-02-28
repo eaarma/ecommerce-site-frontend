@@ -8,7 +8,7 @@ interface DeliveryState {
   country: string;
   postalCode: string;
   phoneNumber: string;
-  shippingMethod: string;
+  shopId: number;
 }
 
 const initialState: DeliveryState = {
@@ -19,7 +19,7 @@ const initialState: DeliveryState = {
   country: "",
   postalCode: "",
   phoneNumber: "",
-  shippingMethod: "standard",
+  shopId: 0,
 };
 
 const deliverySlice = createSlice({

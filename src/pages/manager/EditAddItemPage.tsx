@@ -6,6 +6,10 @@ import {
   Button,
   Grid,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { Close as CloseIcon } from "@mui/icons-material";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
@@ -23,6 +27,14 @@ interface EditAddItemPageProps {
 const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
   const [productName, setProductName] = useState("");
   const [itemDescription, setItemDescription] = useState("");
+
+  const [itemWidth, setItemWidth] = useState("");
+  const [itemLength, setItemLength] = useState("");
+  const [itemHeight, setItemHeight] = useState("");
+  const [itemVolume, setItemVolume] = useState("");
+  const [itemWeight, setItemWeight] = useState("");
+  const [category, setCategory] = useState("");
+
   const [price, setPrice] = useState<number | string>("");
   const [quantity, setQuantity] = useState<number | string>("");
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -32,6 +44,18 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
   const location = useLocation();
   const item = location.state?.item;
   const shopId = useSelector((state: RootState) => state.auth.shopId); // Access shopId from Redux
+
+  useEffect(() => {
+    const width = Number(itemWidth);
+    const length = Number(itemLength);
+    const height = Number(itemHeight);
+
+    if (width > 0 && length > 0 && height > 0) {
+      setItemVolume((width * length * height).toString());
+    } else {
+      setItemVolume(""); // Reset if any value is missing or invalid
+    }
+  }, [itemWidth, itemLength, itemHeight]);
 
   //Loads info from item values into the fields
   useEffect(() => {
@@ -86,11 +110,25 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
     setCustomFields(updatedFields);
   };
 
+  const handleCategoryChange = (
+    event: React.ChangeEvent<{ value: unknown }>
+  ) => {
+    setCategory(event.target.value as string);
+  };
+
+  // Categories
+  const categories = ["category1", "category2", "category3"];
+
   const validateFields = () => {
     const newErrors: string[] = [];
 
     if (!productName.trim()) newErrors.push("productName");
     if (!itemDescription.trim()) newErrors.push("itemDescription");
+    if (!itemWidth.trim()) newErrors.push("itemWidth");
+    if (!itemLength.trim()) newErrors.push("itemLength");
+    if (!itemHeight.trim()) newErrors.push("itemHeight");
+    if (!itemWeight.trim()) newErrors.push("itemWeight");
+
     if (!price) newErrors.push("price");
     if (!quantity) newErrors.push("quantity");
 
@@ -108,8 +146,14 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
       const newItem = {
         name: productName,
         description: itemDescription,
+        width: Number(itemWidth),
+        length: Number(itemLength),
+        height: Number(itemHeight),
+        volume: Number(itemVolume),
+        weight: Number(itemWeight),
         price: Number(price), // Ensure numeric values are sent as numbers
         stock: Number(quantity),
+        category: category,
         colors: selectedColors, // Array of colors
         shopId: shopId,
         trait1: customFields[0] || null, // Send null if empty
@@ -117,6 +161,7 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
         trait3: customFields[2] || null,
         trait4: customFields[3] || null,
         trait5: customFields[4] || null,
+        status: "active",
       };
 
       console.log("Item Payload:", newItem);
@@ -240,6 +285,58 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
           />
         </Grid>
 
+        {/* Item width */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Item Width (cm)"
+            value={itemWidth}
+            onChange={(e) => setItemWidth(e.target.value)}
+            rows={4}
+            error={isFieldError("itemWidth")}
+            helperText={isFieldError("itemWidth") && "This field is required"}
+          />
+        </Grid>
+
+        {/* Item length */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Item Length (cm)"
+            value={itemLength}
+            onChange={(e) => setItemLength(e.target.value)}
+            rows={4}
+            error={isFieldError("itemLength")}
+            helperText={isFieldError("itemLength") && "This field is required"}
+          />
+        </Grid>
+
+        {/* Item Height */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Item Height (cm)"
+            value={itemHeight}
+            onChange={(e) => setItemHeight(e.target.value)}
+            rows={4}
+            error={isFieldError("itemHeight")}
+            helperText={isFieldError("itemHeight") && "This field is required"}
+          />
+        </Grid>
+
+        {/* Item Weight */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Item Weight (g)"
+            value={itemWeight}
+            onChange={(e) => setItemWeight(e.target.value)}
+            rows={4}
+            error={isFieldError("itemWeight")}
+            helperText={isFieldError("itemWeight") && "This field is required"}
+          />
+        </Grid>
+
         {/* Price */}
         <Grid item xs={12}>
           <TextField
@@ -275,6 +372,28 @@ const EditAddItemPage: React.FC<EditAddItemPageProps> = ({ type }) => {
             onColorsChange={setSelectedColors} // update parent's state
           />
         </Grid>
+
+        <Grid item xs={12}>
+          <FormControl fullWidth>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={category}
+              onChange={handleCategoryChange}
+              sx={{ textAlign: "left" }} // Ensures text inside the Select stays left-aligned
+            >
+              {categories.map((cat) => (
+                <MenuItem
+                  key={cat}
+                  value={cat}
+                  sx={{ display: "flex", justifyContent: "flex-start" }}
+                >
+                  {cat}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
         {/* Add Custom Fields */}
         <Grid item xs={12}>
           <Button

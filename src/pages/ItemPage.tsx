@@ -46,6 +46,9 @@ const ItemPage: React.FC = () => {
     imageUrl,
     colors,
     stock,
+    width,
+    length,
+    height,
     trait1,
     trait2,
     trait3,
@@ -240,6 +243,17 @@ const ItemPage: React.FC = () => {
                 </MenuItem>
               )}
             </TextField>
+          </Box>
+
+          <Box
+            sx={{
+              marginTop: 2,
+              textAlign: "left",
+              width: "100%",
+              paddingLeft: "1.5rem",
+            }}
+          >
+            <Typography variant="body2">{`Size: ${width}x${length}x${height} (width * length * height cm)`}</Typography>
           </Box>
 
           {/* Traits */}

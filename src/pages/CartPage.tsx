@@ -18,6 +18,8 @@ import { fetchItemById } from "../api/itemService";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import { updateCart } from "../redux/cartSlice";
+import { validateCartItems } from "../api/deliveryService";
+import { setLockerInfo, setPackageDetails } from "../redux/lockerSlice";
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -83,10 +85,55 @@ const CartPage: React.FC = () => {
     0
   );
 
+  // Function to validate cart items and store locker info in Redux
+  const handleCartItemSizeCheck = async (cartItems: any[]) => {
+    try {
+      const validationResult = await validateCartItems(cartItems);
+      console.log("Validation result:", validationResult);
+
+      // Dispatch the SmartPost locker info if available
+      if (
+        validationResult.SmartPost &&
+        typeof validationResult.SmartPost === "object"
+      ) {
+        dispatch(
+          setLockerInfo({
+            provider: "SmartPost",
+            info: validationResult.SmartPost,
+          })
+        );
+      }
+
+      // Dispatch the DPD locker info if available
+      if (validationResult.DPD && typeof validationResult.DPD === "object") {
+        dispatch(
+          setLockerInfo({
+            provider: "DPD",
+            info: validationResult.DPD,
+          })
+        );
+      }
+
+      // Dispatch package details (dimensions and total volume)
+      dispatch(
+        setPackageDetails({
+          packageDimensions: validationResult.packageDimensions,
+          totalVolume: validationResult.totalVolume,
+        })
+      );
+
+      // You can then proceed with further logic, for example calling handleCheckout
+    } catch (error) {
+      console.error("Validation error:", error);
+    }
+  };
+
   // When the user clicks "Proceed to Checkout", validate all cart items
   const handleCheckout = async () => {
     const messages: string[] = [];
     let updatedCart = [...cartItems]; // Copy cart items
+
+    handleCartItemSizeCheck(updatedCart);
 
     await Promise.all(
       cartItems.map(async (cartItem) => {
@@ -144,7 +191,7 @@ const CartPage: React.FC = () => {
       })
     );
 
-    // 🚨 Ensure out-of-stock items are removed again before dispatch
+    // Ensure out-of-stock items are removed again before dispatch
     updatedCart = updatedCart.filter((item) => item.stockLeft !== 0);
 
     if (messages.length > 0) {

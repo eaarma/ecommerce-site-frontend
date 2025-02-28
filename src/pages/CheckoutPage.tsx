@@ -19,9 +19,21 @@ const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const deliveryDetails = useSelector((state: RootState) => state.delivery);
+  const deliveryMethod = useSelector((state: RootState) => state.deliverMethod);
+  const lockerState = useSelector((state: RootState) => state.locker);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+
+  // Retrieve prices from the Redux slice. If not set, display "N/A" or nothing.
+  const smartpostPrice =
+    lockerState.SmartPost && lockerState.SmartPost.lockerPrice
+      ? `€${lockerState.SmartPost.lockerPrice}`
+      : "";
+  const dpdPrice =
+    lockerState.DPD && lockerState.DPD.lockerPrice
+      ? `€${lockerState.DPD.lockerPrice}`
+      : "";
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch(updateDeliveryDetails({ [e.target.name]: e.target.value }));
@@ -56,6 +68,15 @@ const CheckoutPage: React.FC = () => {
       !/^\d{7,15}$/.test(deliveryDetails.phoneNumber)
     ) {
       newErrors.phoneNumber = "Enter a valid phone number (7-15 digits)";
+    }
+
+    // Validate delivery method details from Redux slice
+    if (
+      !deliveryMethod.provider ||
+      (typeof deliveryMethod.provider === "string" &&
+        deliveryMethod.provider.trim() === "")
+    ) {
+      newErrors.deliveryMethod = "Delivery method needs to be chosen";
     }
 
     setErrors(newErrors);
@@ -200,14 +221,14 @@ const CheckoutPage: React.FC = () => {
                 onClick={() => setSelectedMethod("smartpost")}
                 sx={{ width: "150px", height: "100px" }}
               >
-                SmartPost
+                SmartPost {smartpostPrice && `(${smartpostPrice})`}{" "}
               </Button>
               <Button
                 variant={selectedMethod === "dpd" ? "contained" : "outlined"}
                 onClick={() => setSelectedMethod("dpd")}
                 sx={{ width: "150px", height: "100px" }}
               >
-                DPD
+                DPD {dpdPrice && `(${dpdPrice})`}
               </Button>
             </Box>
           </Box>
@@ -215,6 +236,15 @@ const CheckoutPage: React.FC = () => {
           {/* Expand Widgets Based on Selection */}
           {selectedMethod === "smartpost" && <SmartPostWidget />}
           {selectedMethod === "dpd" && <DPDWidget />}
+
+          {errors.deliveryMethod && (
+            <Typography
+              color="error"
+              sx={{ mt: 1, textAlign: "center", mb: 3 }}
+            >
+              {errors.deliveryMethod}
+            </Typography>
+          )}
 
           {/* Submit Button */}
           <Button

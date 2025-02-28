@@ -1,6 +1,8 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import authReducer from "./authSlice";
 import cartReducer from "./cartSlice";
+import lockerReducer from "./lockerSlice";
+
 import deliveryReducer from "./deliverySlice";
 import deliveryMethodReducer from "./deliveryMethodSlice";
 
@@ -11,6 +13,7 @@ import storage from "redux-persist/lib/storage";
 const rootReducer = combineReducers({
   auth: authReducer,
   cart: cartReducer,
+  locker: lockerReducer,
   delivery: deliveryReducer,
   deliverMethod: deliveryMethodReducer,
 });

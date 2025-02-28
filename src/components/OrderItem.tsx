@@ -1,10 +1,10 @@
 import React from "react";
 import { Button, Paper, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { SalesHistoryItemType } from "../config/Types";
+import { OrderItemType } from "../config/Types";
 
 interface SalesHistoryItemProps {
-  sale: SalesHistoryItemType;
+  sale: OrderItemType;
 }
 
 const SalesHistoryItem: React.FC<SalesHistoryItemProps> = ({ sale }) => {

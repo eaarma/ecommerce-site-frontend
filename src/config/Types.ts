@@ -6,6 +6,11 @@ export interface Item {
   stock: number;
   imageUrl: string;
   color?: string;
+  width: number;
+  length: number;
+  height: number;
+  volume: number;
+  weight: number;
   trait1?: string;
   trait2?: string;
   trait3?: string;
